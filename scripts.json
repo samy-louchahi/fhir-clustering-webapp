@@ -1,0 +1,24 @@
+{
+  "scripts": {
+    "start": "Démarrer l'application complète",
+    "stop": "Arrêter tous les services",
+    "restart": "Redémarrer tous les services",
+    "logs": "Voir les logs en temps réel",
+    "clean": "Nettoyer les données et caches"
+  },
+  "commands": {
+    "start_backend": "docker-compose up -d",
+    "start_frontend": "cd frontend && npm run dev",
+    "stop": "docker-compose down",
+    "restart": "docker-compose restart",
+    "logs_backend": "docker-compose logs -f backend",
+    "logs_worker": "docker-compose logs -f worker",
+    "logs_all": "docker-compose logs -f",
+    "clean_results": "rm -rf results/*",
+    "clean_docker": "docker-compose down -v",
+    "rebuild": "docker-compose build --no-cache",
+    "health_check": "curl http://localhost:8000/health",
+    "api_docs": "open http://localhost:8000/docs",
+    "frontend_url": "open http://localhost:5173"
+  }
+}
