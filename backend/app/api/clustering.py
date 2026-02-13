@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from uuid import uuid4
+import json
 import redis
-from celery.result import AsyncResult
 
 router = APIRouter()
 
@@ -22,65 +22,55 @@ class JobStatusResponse(BaseModel):
 
 @router.post("/run")
 async def run_clustering(request: ClusteringRequest):
-    """Lance une job de clustering asynchrone"""
-    from app.workers.tasks import run_pipeline_task
+    """Lance une job de clustering dans un thread (pas de fork)"""
+    from app.workers.tasks import launch_pipeline
     
     job_id = str(uuid4())
     
-    # Launch Celery task
-    task = run_pipeline_task.delay(
+    # Launch pipeline in a background thread
+    launch_pipeline(
         job_id=job_id,
         feature_mode=request.feature_mode,
         n_components=request.n_components,
-        force=request.force
-    )
-    
-    # Store in Redis
-    redis_client.setex(
-        f"job:{job_id}",
-        7200,  # 2h TTL
-        task.id
+        force=request.force,
     )
     
     return {
         "job_id": job_id,
-        "task_id": task.id,
         "status": "queued"
     }
 
 @router.get("/status/{job_id}", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
     """Récupère le statut d'une job"""
-    task_id = redis_client.get(f"job:{job_id}")
-    if not task_id:
+    raw = redis_client.get(f"job:{job_id}")
+    if not raw:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    task = AsyncResult(task_id)
+    data = json.loads(raw)
     
+    state = data.get("state", "UNKNOWN")
     status_map = {
-        "PENDING": "queued",
-        "STARTED": "running",
+        "QUEUED": "queued",
         "PREPROCESSING": "preprocessing",
         "TUNING": "tuning",
         "CLUSTERING": "clustering",
         "SUCCESS": "completed",
-        "FAILURE": "failed"
+        "FAILURE": "failed",
     }
     
     return JobStatusResponse(
         job_id=job_id,
-        status=status_map.get(task.state, task.state.lower()),
-        progress=task.info.get('progress', 0) if isinstance(task.info, dict) else 0,
-        message=task.info.get('message', '') if isinstance(task.info, dict) else ''
+        status=status_map.get(state, state.lower()),
+        progress=data.get("progress", 0),
+        message=data.get("message", ""),
     )
 
 @router.get("/results/{job_id}")
 async def get_results(job_id: str):
     """Récupère les résultats d'une job terminée"""
     import os
-    import json
     import pandas as pd
-    from pathlib import Path
     
     results_base = f"/app/results/jobs/{job_id}"
     
@@ -122,13 +112,14 @@ async def list_jobs():
     
     for key in keys:
         job_id = key.split(":")[1]
-        task_id = redis_client.get(key)
-        if task_id:
-            task = AsyncResult(task_id)
+        raw = redis_client.get(key)
+        if raw:
+            data = json.loads(raw)
             jobs.append({
                 "job_id": job_id,
-                "status": task.state,
-                "task_id": task_id
+                "status": data.get("state", "UNKNOWN"),
+                "progress": data.get("progress", 0),
+                "message": data.get("message", ""),
             })
     
     return {"jobs": jobs}

@@ -114,17 +114,24 @@ const Dashboard: React.FC = () => {
               >
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="font-medium text-gray-900">Job ID: {job.job_id}</p>
-                    <p className="text-sm text-gray-500">Task: {job.task_id}</p>
+                    <p className="font-medium text-gray-900">Job: {job.job_id.slice(0, 8)}...</p>
+                    {job.message && (
+                      <p className="text-sm text-gray-500">{job.message}</p>
+                    )}
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    job.status === 'SUCCESS' ? 'bg-green-100 text-green-800' :
-                    job.status === 'FAILURE' ? 'bg-red-100 text-red-800' :
-                    job.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-blue-100 text-blue-800'
-                  }`}>
-                    {job.status}
-                  </span>
+                  <div className="flex items-center space-x-3">
+                    {job.progress > 0 && job.status !== 'SUCCESS' && (
+                      <span className="text-sm text-gray-500">{job.progress}%</span>
+                    )}
+                    <span className={`px-3 py-1 rounded-full text-sm ${
+                      job.status === 'SUCCESS' ? 'bg-green-100 text-green-800' :
+                      job.status === 'FAILURE' ? 'bg-red-100 text-red-800' :
+                      job.status === 'QUEUED' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {job.status}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}

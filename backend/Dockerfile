@@ -9,21 +9,23 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
-
-# Install Python dependencies
+# Copy and install Python dependencies
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app/ /app/app/
+COPY backend/app/ /app/app/
 
-# Copy additional modules needed at runtime
-# Note: fhir_clustering, workflows, etc. are mounted via volumes
+# Copy pipeline modules
+COPY fhir_clustering/ /app/fhir_clustering/
+COPY workflows/ /app/workflows/
 
-# Health check script
-RUN echo '#!/bin/sh\ncurl -f http://localhost:8000/health || exit 1' > /healthcheck.sh && \
-    chmod +x /healthcheck.sh
+# Copy data & terminology (baked in — no volume mounts needed)
+COPY data/ /app/data/
+COPY terminology_omop/ /app/terminology_omop/
+
+# Results dir (will be mounted as volume for output)
+RUN mkdir -p /app/results
 
 EXPOSE 8000
 

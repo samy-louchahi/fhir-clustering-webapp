@@ -57,10 +57,6 @@ else
     echo "   docker-compose logs backend"
 fi
 
-echo ""
-echo "📊 Installation du frontend..."
-cd frontend
-npm install
 
 echo ""
 echo "✅ Installation terminée !"

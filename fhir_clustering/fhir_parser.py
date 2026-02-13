@@ -3,9 +3,12 @@ import glob
 import os
 import time
 import pickle
+import logging
 from typing import List, Dict, Optional
 
 from .data_structures import PatientRecord, MedicalCode, CodeSystem
+
+logger = logging.getLogger(__name__)
 
 
 class FHIRParser:
@@ -83,7 +86,7 @@ class FHIRParser:
         files = sorted(glob.glob(os.path.join(directory_path, "*.json")))
         print(f"Chargement de {len(files)} fichiers patients depuis {directory_path}...", flush=True)
 
-        # Cache (highly recommended)
+        # Cache
         cache_path = os.path.join(directory_path, "_patients_cache.pkl")
         if use_cache and os.path.exists(cache_path):
             print(f"Loading cache: {cache_path}", flush=True)
@@ -104,9 +107,9 @@ class FHIRParser:
                 dt = time.perf_counter() - t0
                 print(f"  parsed {i}/{len(files)} files ({dt:.1f}s)", flush=True)
 
-        print(f"Done in {time.perf_counter() - t0:.1f}s", flush=True)
+        print(f"Done: {len(records)} records in {time.perf_counter() - t0:.1f}s", flush=True)
 
-        if use_cache:
+        if use_cache and records:
             print(f"Saving cache: {cache_path}", flush=True)
             with open(cache_path, "wb") as f:
                 pickle.dump(records, f)

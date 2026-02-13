@@ -26,7 +26,7 @@ import csv
 import logging
 
 import pandas as pd
-import networkx as nx  # <--- AJOUT MAJEUR POUR LA CLÔTURE TRANSITIVE
+import networkx as nx 
 
 from fhir_clustering.fhir_parser import FHIRParser
 from fhir_clustering.data_structures import CodeSystem
@@ -44,6 +44,7 @@ OMOP_LOINC = "LOINC"
 OMOP_RXNORM = "RxNorm"
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TerminologyLayer:

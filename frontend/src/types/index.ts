@@ -37,5 +37,6 @@ export interface ReportRequest {
 export interface Job {
   job_id: string;
   status: string;
-  task_id: string;
+  progress: number;
+  message: string;
 }

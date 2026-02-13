@@ -34,15 +34,11 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: fhir-backend
     volumes:
-      - ./fhir_clustering:/app/fhir_clustering
-      - ./workflows:/app/workflows
-      - ./terminology_omop:/app/terminology_omop
-      - ./data:/app/data
-      - ./results:/app/results
+      - backend_results:/app/results
     environment:
       - REDIS_URL=redis://redis:6379/0
       - OLLAMA_URL=http://ollama:11434
@@ -61,30 +57,10 @@ services:
       timeout: 5s
       retries: 3
 
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: fhir-worker
-    command: celery -A app.workers.tasks worker --loglevel=info --concurrency=2
-    volumes:
-      - ./fhir_clustering:/app/fhir_clustering
-      - ./workflows:/app/workflows
-      - ./terminology_omop:/app/terminology_omop
-      - ./data:/app/data
-      - ./results:/app/results
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - OLLAMA_URL=http://ollama:11434
-      - PYTHONUNBUFFERED=1
-    depends_on:
-      redis:
-        condition: service_healthy
-      ollama:
-        condition: service_started
-
 volumes:
   ollama_models:
+    driver: local
+  backend_results:
     driver: local
 
 networks:

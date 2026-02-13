@@ -24,6 +24,9 @@ const JobDetail: React.FC = () => {
         if (statusData.status === 'completed') {
           const resultsData = await clusteringAPI.getResults(jobId);
           setResults(resultsData);
+          clearInterval(interval);
+        } else if (statusData.status === 'failed') {
+          clearInterval(interval);
         }
       } catch (error) {
         console.error('Error checking status:', error);
@@ -31,7 +34,7 @@ const JobDetail: React.FC = () => {
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 3000);
+    const interval = setInterval(checkStatus, 2000);
     return () => clearInterval(interval);
   }, [jobId]);
 

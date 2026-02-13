@@ -47,9 +47,6 @@ check $? "Ollama en cours d'exécution"
 docker ps | grep -q fhir-backend
 check $? "Backend en cours d'exécution"
 
-docker ps | grep -q fhir-worker
-check $? "Worker en cours d'exécution"
-
 # 3. Vérifier la connectivité des services
 echo ""
 echo "3️⃣  Vérification de la connectivité..."
@@ -129,6 +126,10 @@ else
     echo "   1. Vérifier les logs: ./logs.sh"
     echo "   2. Redémarrer: docker-compose restart"
     echo "   3. Rebuild si nécessaire: docker-compose build --no-cache"
+fi
+
+echo ""
+ 3. Rebuild si nécessaire: docker-compose build --no-cache"
 fi
 
 echo ""
