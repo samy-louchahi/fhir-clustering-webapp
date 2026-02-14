@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { clusteringAPI, llmAPI } from '../services/api';
 import type { JobStatus, ClusterResults } from '../types';
 import ReactMarkdown from 'react-markdown';
+import html2pdf from 'html2pdf.js';
 
 const JobDetail: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -14,6 +15,10 @@ const JobDetail: React.FC = () => {
   const [loadingReport, setLoadingReport] = useState(false);
   const [globalReport, setGlobalReport] = useState<string>('');
   const [loadingGlobalReport, setLoadingGlobalReport] = useState(false);
+  
+  // Refs for PDF export
+  const globalReportRef = useRef<HTMLDivElement>(null);
+  const clusterReportRef = useRef<HTMLDivElement>(null);
 
   // Helper function to clean markdown from code block wrapping
   const cleanMarkdown = (text: string): string => {
@@ -28,6 +33,21 @@ const JobDetail: React.FC = () => {
       cleaned = cleaned.replace(/\n?```$/, '');
     }
     return cleaned.trim();
+  };
+
+  // Function to download report as PDF
+  const downloadPDF = (elementRef: React.RefObject<HTMLDivElement>, filename: string) => {
+    if (!elementRef.current) return;
+    
+    const opt = {
+      margin: [10, 10],
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(elementRef.current).save();
   };
 
   useEffect(() => {
@@ -232,13 +252,24 @@ const JobDetail: React.FC = () => {
           {/* Global Report Display */}
           {globalReport && (
             <div className="bg-white rounded-lg shadow p-6 border-2 border-green-200">
-              <div className="flex items-center mb-4">
-                <span className="text-2xl mr-3">📊</span>
-                <h3 className="text-xl font-semibold text-green-800">
-                  Rapport Global - {selectedMethod.toUpperCase()}
-                </h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <span className="text-2xl mr-3">📊</span>
+                  <h3 className="text-xl font-semibold text-green-800">
+                    Rapport Global - {selectedMethod.toUpperCase()}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => downloadPDF(globalReportRef, `rapport-global-${selectedMethod}-${jobId?.substring(0, 8)}.pdf`)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Télécharger PDF
+                </button>
               </div>
-              <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none overflow-hidden break-words">
+              <div ref={globalReportRef} className="prose prose-sm md:prose-base lg:prose-lg max-w-none overflow-hidden break-words">
                 <div className="markdown-content">
                   <ReactMarkdown
                     components={{
@@ -265,13 +296,24 @@ const JobDetail: React.FC = () => {
           {/* Report Display */}
           {report && selectedCluster !== null && (
             <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center mb-4">
-                <span className="text-xl mr-2">📄</span>
-                <h3 className="text-xl font-semibold text-blue-800">
-                  Rapport LLM - Cluster {selectedCluster}
-                </h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <span className="text-xl mr-2">📄</span>
+                  <h3 className="text-xl font-semibold text-blue-800">
+                    Rapport LLM - Cluster {selectedCluster}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => downloadPDF(clusterReportRef, `rapport-cluster-${selectedCluster}-${selectedMethod}-${jobId?.substring(0, 8)}.pdf`)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Télécharger PDF
+                </button>
               </div>
-              <div className="prose prose-sm md:prose-base lg:prose-lg max-w-none overflow-hidden break-words">
+              <div ref={clusterReportRef} className="prose prose-sm md:prose-base lg:prose-lg max-w-none overflow-hidden break-words">
                 <div className="markdown-content">
                   <ReactMarkdown
                     components={{
