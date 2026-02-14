@@ -15,3 +15,42 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+/* Markdown content styling */
+.markdown-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+.markdown-content * {
+  max-width: 100%;
+  overflow-wrap: break-word;
+}
+
+.markdown-content pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.markdown-content code {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Ensure tables don't overflow */
+.markdown-content table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+}
+
+/* Better list styling */
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5rem;
+}
+
+.markdown-content li {
+  margin-bottom: 0.5rem;
+}
