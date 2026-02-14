@@ -16,8 +16,11 @@ class ReportRequest(BaseModel):
 async def generate_report(request: ReportRequest):
     """Génère un rapport LLM pour un cluster"""
     
+    # Map method name: frontend sends 'kmeans' but folder is 'k_mean'
+    method_folder = "k_mean" if request.method == "kmeans" else request.method
+    
     # Load cluster data
-    results_dir = f"/app/results/jobs/{request.job_id}/{request.method}/final"
+    results_dir = f"/app/results/jobs/{request.job_id}/{method_folder}/final"
     
     summary_path = f"{results_dir}/summary.csv"
     top_codes_path = f"{results_dir}/top_codes_distinctiveness.csv"
@@ -45,7 +48,10 @@ async def generate_report(request: ReportRequest):
 async def generate_global_report(job_id: str, method: str = "kmeans"):
     """Génère un rapport global pour tous les clusters"""
     
-    results_dir = f"/app/results/jobs/{job_id}/{method}/final"
+    # Map method name: frontend sends 'kmeans' but folder is 'k_mean'
+    method_folder = "k_mean" if method == "kmeans" else method
+    
+    results_dir = f"/app/results/jobs/{job_id}/{method_folder}/final"
     summary_path = f"{results_dir}/summary.csv"
     
     if not os.path.exists(summary_path):

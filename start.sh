@@ -26,18 +26,18 @@ done
 mkdir -p results
 
 echo ""
-echo "📦 Téléchargement du modèle LLM (Llama 3.1:8b)..."
+echo "📦 Téléchargement du modèle LLM (Qwen 2.5:3b-instruct)..."
 echo "   Cela peut prendre 5-10 minutes..."
 
 # Option 1: Ollama natif (si installé)
 if command -v ollama &> /dev/null; then
     echo "   Utilisation d'Ollama natif..."
-    ollama pull llama3.1:8b
+    ollama pull qwen2.5:3b-instruct
 else
     echo "   Utilisation d'Ollama via Docker..."
     docker-compose up -d ollama
     sleep 10
-    docker-compose exec ollama ollama pull llama3.1:8b
+    docker-compose exec ollama ollama pull qwen2.5:3b-instruct
 fi
 
 echo ""

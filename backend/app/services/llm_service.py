@@ -5,7 +5,7 @@ from typing import Optional
 class LLMReportGenerator:
     def __init__(self, ollama_url: str = "http://ollama:11434"):
         self.ollama_url = ollama_url
-        self.model = "llama3.1:8b"
+        self.model = "qwen2.5:3b-instruct"
     
     async def generate_cluster_report(
         self,
@@ -59,8 +59,8 @@ Format Markdown. Reste concis et factuel.
                         "prompt": prompt,
                         "stream": False,
                         "options": {
-                            "temperature": 0.7,
-                            "top_p": 0.9,
+                            "temperature": 0.2,
+                            "top_p": 0.8,
                             "num_predict": 500
                         }
                     }
@@ -112,8 +112,8 @@ Format Markdown.
                         "prompt": prompt,
                         "stream": False,
                         "options": {
-                            "temperature": 0.7,
-                            "top_p": 0.9,
+                            "temperature": 0.2,
+                            "top_p": 0.8,
                             "num_predict": 800
                         }
                     }
