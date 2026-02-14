@@ -129,7 +129,7 @@ else
 fi
 
 echo ""
- 3. Rebuild si nécessaire: docker-compose build --no-cache"
+ 3. Rebuild si nécessaire: docker-compose build --no-cache""
 fi
 
 echo ""

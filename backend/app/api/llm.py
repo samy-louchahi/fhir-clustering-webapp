@@ -23,7 +23,7 @@ async def generate_report(request: ReportRequest):
     results_dir = f"/app/results/jobs/{request.job_id}/{method_folder}/final"
     
     summary_path = f"{results_dir}/summary.csv"
-    top_codes_path = f"{results_dir}/top_codes_distinctiveness.csv"
+    top_codes_path = f"{results_dir}/top_features_distinctiveness.csv"
     
     if not os.path.exists(summary_path):
         raise HTTPException(status_code=404, detail="Cluster data not found")
