@@ -40,3 +40,11 @@ export interface Job {
   progress: number;
   message: string;
 }
+export interface Plot {
+  name: string;
+  url: string;
+}
+
+export interface PlotsResponse {
+  plots: Plot[];
+}
