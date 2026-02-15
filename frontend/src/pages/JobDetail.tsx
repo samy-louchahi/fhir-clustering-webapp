@@ -253,7 +253,7 @@ const JobDetail: React.FC = () => {
           {/* Visualizations Section */}
           {results.plots && results.plots.length > 0 && (
             <div className="bg-white rounded-lg shadow p-6">
-              <ClusteringVisualizations plots={results.plots} />
+              <ClusteringVisualizations plots={results.plots} selectedMethod={selectedMethod} />
             </div>
           )}
 

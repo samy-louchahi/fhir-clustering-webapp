@@ -3,9 +3,10 @@ import type { Plot } from '../types';
 
 interface ClusteringVisualizationsProps {
   plots: Plot[];
+  selectedMethod: 'kmeans' | 'hdbscan';
 }
 
-const ClusteringVisualizations: React.FC<ClusteringVisualizationsProps> = ({ plots }) => {
+const ClusteringVisualizations: React.FC<ClusteringVisualizationsProps> = ({ plots, selectedMethod }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedPlot, setSelectedPlot] = useState<Plot | null>(null);
 
@@ -17,15 +18,27 @@ const ClusteringVisualizations: React.FC<ClusteringVisualizationsProps> = ({ plo
     );
   }
 
+  // Filtrer d'abord par méthode (kmeans ou hdbscan)
+  const plotsForMethod = plots.filter(plot => {
+    if (selectedMethod === 'kmeans') {
+      // Pour kmeans: inclure tous les plots sous k_mean/ (incluant hdbscan_in_kmeans)
+      return plot.path.includes('k_mean/');
+    } else {
+      // Pour hdbscan: uniquement les plots sous hdbscan/final/plots (pas ceux dans k_mean)
+      return plot.path.includes('hdbscan/final/plots') && !plot.path.includes('k_mean');
+    }
+  });
+
+  // Puis filtrer par catégorie
   const filteredPlots = selectedCategory === 'all' 
-    ? plots 
-    : plots.filter(plot => plot.category === selectedCategory);
+    ? plotsForMethod 
+    : plotsForMethod.filter(plot => plot.category === selectedCategory);
 
   const categories = [
-    { value: 'all', label: 'Toutes', count: plots.length },
-    { value: 'main', label: 'Principales', count: plots.filter(p => p.category === 'main').length },
-    { value: 'hierarchical', label: 'Hiérarchiques', count: plots.filter(p => p.category === 'hierarchical').length },
-    { value: 'preprocessing', label: 'Prétraitement', count: plots.filter(p => p.category === 'preprocessing').length },
+    { value: 'all', label: 'Toutes', count: plotsForMethod.length },
+    { value: 'main', label: 'Principales', count: plotsForMethod.filter(p => p.category === 'main').length },
+    { value: 'hierarchical', label: 'Hiérarchiques', count: plotsForMethod.filter(p => p.category === 'hierarchical').length },
+    { value: 'preprocessing', label: 'Prétraitement', count: plotsForMethod.filter(p => p.category === 'preprocessing').length },
   ].filter(cat => cat.count > 0);
 
   return (
@@ -34,7 +47,7 @@ const ClusteringVisualizations: React.FC<ClusteringVisualizationsProps> = ({ plo
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-bold text-gray-900 flex items-center">
           <span className="text-3xl mr-3">📊</span>
-          Visualisations du Clustering
+          Visualisations - {selectedMethod.toUpperCase()}
         </h2>
         
         <select

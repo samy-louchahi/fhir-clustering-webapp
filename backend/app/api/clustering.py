@@ -92,7 +92,7 @@ def _get_plot_metadata() -> Dict[str, Dict]:
             "title": "Vue 2D des Clusters Hiérarchiques",
             "description": "Projection 2D (PCA) des patients colorés par leur cluster hiérarchique (HDBSCAN dans KMeans). Chaque point représente un patient, les couleurs distinguent les sous-groupes identifiés.",
             "type": "scatter",
-            "category": "hierarchical"
+            "category": "main"
         },
         "subcluster_sizes_kmeans": {
             "title": "Taille des Sous-Clusters par Groupe KMeans",
