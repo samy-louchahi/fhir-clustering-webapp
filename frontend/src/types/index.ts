@@ -26,6 +26,7 @@ export interface ClusterResults {
     clusters: ClusterInfo[];
     top_codes?: any[];
   };
+  plots?: Plot[];
 }
 
 export interface ReportRequest {
@@ -40,9 +41,15 @@ export interface Job {
   progress: number;
   message: string;
 }
+
 export interface Plot {
-  name: string;
+  filename: string;
+  path: string;
   url: string;
+  title: string;
+  description: string;
+  type: 'scatter' | 'bar' | 'heatmap' | 'line' | 'unknown';
+  category: 'main' | 'hierarchical' | 'preprocessing' | 'other';
 }
 
 export interface PlotsResponse {

@@ -4,6 +4,7 @@ import { clusteringAPI, llmAPI } from '../services/api';
 import type { JobStatus, ClusterResults } from '../types';
 import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
+import ClusteringVisualizations from '../components/ClusteringVisualizations';
 
 const JobDetail: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -248,6 +249,13 @@ const JobDetail: React.FC = () => {
               </table>
             </div>
           </div>
+
+          {/* Visualizations Section */}
+          {results.plots && results.plots.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <ClusteringVisualizations plots={results.plots} />
+            </div>
+          )}
 
           {/* Global Report Display */}
           {globalReport && (
