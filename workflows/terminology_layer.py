@@ -93,29 +93,41 @@ def _load_concept_csv(concept_path: str, usecols: Optional[List[str]] = None) ->
         return pd.DataFrame()
 
     sep = _detect_sep(concept_path)
+    
+    # Afficher la taille du fichier pour info
+    file_size_mb = os.path.getsize(concept_path) / (1024 * 1024)
+    logger.info(f"Loading {os.path.basename(concept_path)} ({file_size_mb:.1f} MB)...")
 
-    def _read(quoting_mode: int, on_bad_lines: str):
+    def _read(quoting_mode: int, on_bad_lines: str, use_c_engine: bool = True):
+        engine = "c" if use_c_engine else "python"
         df = pd.read_csv(
             concept_path,
             dtype=str,
             sep=sep,
-            engine="python",
+            engine=engine,
             quoting=quoting_mode,
-            escapechar="\\",
+            escapechar="\\" if not use_c_engine else None,
             on_bad_lines=on_bad_lines,   # "error" | "warn" | "skip"
         )
         df = _normalize_columns(df)
         return df
 
-    # 1) Try normal CSV parsing (quotes respected)
+    # 1) Try with fast C engine first
     try:
-        df = _read(csv.QUOTE_MINIMAL, on_bad_lines="error")
-    except ParserError:
-        # 2) Fallback: ignore quotes entirely
+        df = _read(csv.QUOTE_MINIMAL, on_bad_lines="error", use_c_engine=True)
+        logger.info(f"Loaded {len(df)} rows with C engine")
+    except (ParserError, Exception) as e:
+        logger.warning(f"C engine failed, falling back to Python engine: {e}")
+        # 2) Fallback: Python engine with minimal quotes
         try:
-            df = _read(csv.QUOTE_NONE, on_bad_lines="warn")
+            df = _read(csv.QUOTE_MINIMAL, on_bad_lines="error", use_c_engine=False)
+            logger.info(f"Loaded {len(df)} rows with Python engine")
         except ParserError:
-            df = _read(csv.QUOTE_NONE, on_bad_lines="skip")
+            # 3) Last resort: ignore quotes
+            try:
+                df = _read(csv.QUOTE_NONE, on_bad_lines="warn", use_c_engine=False)
+            except ParserError:
+                df = _read(csv.QUOTE_NONE, on_bad_lines="skip", use_c_engine=False)
 
     if usecols is not None:
         wanted = [c.strip().lower() for c in usecols]
@@ -347,11 +359,24 @@ def build_terminology_layer(
             logger.info("Using existing CONCEPT_ANCESTOR.csv")
             anc_cols = ["ancestor_concept_id", "descendant_concept_id", "min_levels_of_separation"]
             sep = _detect_sep(anc_path)
-            anc_df = pd.read_csv(anc_path, usecols=anc_cols, sep=sep, engine="python")
+            
+            # Charger avec le moteur C (beaucoup plus rapide)
+            file_size_mb = os.path.getsize(anc_path) / (1024 * 1024)
+            logger.info(f"Loading CONCEPT_ANCESTOR.csv ({file_size_mb:.1f} MB) with fast C engine...")
+            try:
+                anc_df = pd.read_csv(anc_path, usecols=anc_cols, sep=sep, dtype=str)
+                logger.info(f"Loaded {len(anc_df)} ancestor relationships")
+            except Exception as e:
+                logger.warning(f"C engine failed, using Python engine (slower): {e}")
+                anc_df = pd.read_csv(anc_path, usecols=anc_cols, sep=sep, engine="python", dtype=str)
+            
             anc_df.columns = [str(c).replace("\ufeff", "").strip().lower() for c in anc_df.columns]
+            logger.info(f"Filtering for {len(descendant_ids)} descendant concepts...")
             anc_df = anc_df[anc_df["descendant_concept_id"].isin(descendant_ids)]
+            logger.info(f"Retained {len(anc_df)} relevant ancestor relationships")
             if max_ancestor_distance is not None:
                 anc_df = anc_df[anc_df["min_levels_of_separation"] <= int(max_ancestor_distance)]
+                logger.info(f"After distance filter: {len(anc_df)} relationships")
         else:
             # Cas B : On doit le calculer via networkx et les relations parent/enfant directes
             logger.info("CONCEPT_ANCESTOR.csv not found. Calculating closure from relationships...")

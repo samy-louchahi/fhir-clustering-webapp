@@ -12,6 +12,10 @@ class ReportRequest(BaseModel):
     cluster_id: int
     method: str = "kmeans"  # or "hdbscan"
 
+class GlobalReportRequest(BaseModel):
+    job_id: str
+    method: str = "kmeans"  # or "hdbscan"
+
 @router.post("/generate-report")
 async def generate_report(request: ReportRequest):
     """Génère un rapport LLM pour un cluster"""
@@ -45,13 +49,13 @@ async def generate_report(request: ReportRequest):
     }
 
 @router.post("/generate-global-report")
-async def generate_global_report(job_id: str, method: str = "kmeans"):
+async def generate_global_report(request: GlobalReportRequest):
     """Génère un rapport global pour tous les clusters"""
     
     # Map method name: frontend sends 'kmeans' but folder is 'k_mean'
-    method_folder = "k_mean" if method == "kmeans" else method
+    method_folder = "k_mean" if request.method == "kmeans" else request.method
     
-    results_dir = f"/app/results/jobs/{job_id}/{method_folder}/final"
+    results_dir = f"/app/results/jobs/{request.job_id}/{method_folder}/final"
     summary_path = f"{results_dir}/summary.csv"
     
     if not os.path.exists(summary_path):
@@ -62,7 +66,7 @@ async def generate_global_report(job_id: str, method: str = "kmeans"):
     generator = LLMReportGenerator()
     report = await generator.generate_global_report(
         summary_df=summary_df,
-        method=method
+        method=request.method
     )
     
     return {"report": report}

@@ -6,27 +6,23 @@ echo "📋 Logs FHIR Clustering"
 echo ""
 echo "Quelle service voulez-vous surveiller?"
 echo "1) Backend"
-echo "2) Worker"
-echo "3) Redis"
-echo "4) Ollama"
-echo "5) Tous"
+echo "2) Redis"
+echo "3) Ollama"
+echo "4) Tous"
 echo ""
-read -p "Choix (1-5): " choice
+read -p "Choix (1-4): " choice
 
 case $choice in
   1)
     docker-compose logs -f backend
     ;;
   2)
-    docker-compose logs -f worker
-    ;;
-  3)
     docker-compose logs -f redis
     ;;
-  4)
+  3)
     docker-compose logs -f ollama
     ;;
-  5)
+  4)
     docker-compose logs -f
     ;;
   *)

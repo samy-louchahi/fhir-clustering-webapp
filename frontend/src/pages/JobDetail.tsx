@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { clusteringAPI, llmAPI } from '../services/api';
 import type { JobStatus, ClusterResults } from '../types';
 import ReactMarkdown from 'react-markdown';
+import html2pdf from 'html2pdf.js';
+import ClusteringVisualizations from '../components/ClusteringVisualizations';
 
 const JobDetail: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -12,6 +14,42 @@ const JobDetail: React.FC = () => {
   const [selectedCluster, setSelectedCluster] = useState<number | null>(null);
   const [report, setReport] = useState<string>('');
   const [loadingReport, setLoadingReport] = useState(false);
+  const [globalReport, setGlobalReport] = useState<string>('');
+  const [loadingGlobalReport, setLoadingGlobalReport] = useState(false);
+  
+  // Refs for PDF export
+  const globalReportRef = useRef<HTMLDivElement>(null);
+  const clusterReportRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to clean markdown from code block wrapping
+  const cleanMarkdown = (text: string): string => {
+    // Remove ```markdown at the beginning and ``` at the end
+    let cleaned = text.trim();
+    if (cleaned.startsWith('```markdown')) {
+      cleaned = cleaned.replace(/^```markdown\n?/, '');
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```\n?/, '');
+    }
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.replace(/\n?```$/, '');
+    }
+    return cleaned.trim();
+  };
+
+  // Function to download report as PDF
+  const downloadPDF = (elementRef: React.RefObject<HTMLDivElement>, filename: string) => {
+    if (!elementRef.current) return;
+    
+    const opt = {
+      margin: [10, 10],
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+    };
+
+    html2pdf().set(opt).from(elementRef.current).save();
+  };
 
   useEffect(() => {
     if (!jobId) return;
@@ -41,15 +79,34 @@ const JobDetail: React.FC = () => {
   const generateReport = async (clusterId: number) => {
     if (!jobId) return;
     setLoadingReport(true);
+    setSelectedCluster(clusterId); // Set immediately for loading indicator
     try {
       const data = await llmAPI.generateReport(jobId, clusterId, selectedMethod);
-      setReport(data.report);
-      setSelectedCluster(clusterId);
+      setReport(cleanMarkdown(data.report));
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Erreur lors de la génération du rapport');
+      setSelectedCluster(null); // Reset on error
     } finally {
       setLoadingReport(false);
+    }
+  };
+
+  const generateGlobalReport = async () => {
+    if (!jobId) return;
+    setLoadingGlobalReport(true);
+    setGlobalReport(''); // Clear previous report
+    try {
+      const data = await llmAPI.generateGlobalReport(jobId, selectedMethod);
+      setGlobalReport(cleanMarkdown(data.report));
+      // Clear individual cluster report when showing global
+      setSelectedCluster(null);
+      setReport('');
+    } catch (error) {
+      console.error('Error generating global report:', error);
+      alert('Erreur lors de la génération du rapport global');
+    } finally {
+      setLoadingGlobalReport(false);
     }
   };
 
@@ -121,9 +178,28 @@ const JobDetail: React.FC = () => {
 
           {/* Clusters Table */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xl font-semibold mb-4">
-              Clusters - {selectedMethod.toUpperCase()}
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">
+                Clusters - {selectedMethod.toUpperCase()}
+              </h3>
+              <button
+                onClick={generateGlobalReport}
+                disabled={loadingGlobalReport}
+                className="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {loadingGlobalReport ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Génération...
+                  </span>
+                ) : (
+                  '📊 Générer Rapport Global'
+                )}
+              </button>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -152,9 +228,19 @@ const JobDetail: React.FC = () => {
                         <button
                           onClick={() => generateReport(cluster.cluster_id)}
                           disabled={loadingReport}
-                          className="text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400"
+                          className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
                         >
-                          Générer Rapport LLM
+                          {loadingReport && selectedCluster === cluster.cluster_id ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Génération...
+                            </>
+                          ) : (
+                            '📄 Générer Rapport'
+                          )}
                         </button>
                       </td>
                     </tr>
@@ -164,14 +250,97 @@ const JobDetail: React.FC = () => {
             </div>
           </div>
 
+          {/* Visualizations Section */}
+          {results.plots && results.plots.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <ClusteringVisualizations plots={results.plots} selectedMethod={selectedMethod} />
+            </div>
+          )}
+
+          {/* Global Report Display */}
+          {globalReport && (
+            <div className="bg-white rounded-lg shadow p-6 border-2 border-green-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <span className="text-2xl mr-3">📊</span>
+                  <h3 className="text-xl font-semibold text-green-800">
+                    Rapport Global - {selectedMethod.toUpperCase()}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => downloadPDF(globalReportRef, `rapport-global-${selectedMethod}-${jobId?.substring(0, 8)}.pdf`)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Télécharger PDF
+                </button>
+              </div>
+              <div ref={globalReportRef} className="prose prose-sm md:prose-base lg:prose-lg max-w-none overflow-hidden break-words">
+                <div className="markdown-content">
+                  <ReactMarkdown
+                    components={{
+                      h1: (props) => <h1 className="text-2xl font-bold mt-6 mb-4 text-gray-900" {...props} />,
+                      h2: (props) => <h2 className="text-xl font-semibold mt-5 mb-3 text-gray-800" {...props} />,
+                      h3: (props) => <h3 className="text-lg font-semibold mt-4 mb-2 text-gray-800" {...props} />,
+                      p: (props) => <p className="mb-4 text-gray-700 leading-relaxed break-words" {...props} />,
+                      ul: (props) => <ul className="list-disc list-inside mb-4 space-y-2 text-gray-700" {...props} />,
+                      ol: (props) => <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700" {...props} />,
+                      li: (props) => <li className="ml-4 break-words" {...props} />,
+                      strong: (props) => <strong className="font-semibold text-gray-900" {...props} />,
+                      code: (props) => <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800 break-words" {...props} />,
+                      pre: (props) => <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto mb-4" {...props} />,
+                      blockquote: (props) => <blockquote className="border-l-4 border-green-500 pl-4 italic text-gray-700 my-4" {...props} />,
+                    }}
+                  >
+                    {globalReport}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Report Display */}
           {report && selectedCluster !== null && (
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-xl font-semibold mb-4">
-                Rapport LLM - Cluster {selectedCluster}
-              </h3>
-              <div className="prose max-w-none">
-                <ReactMarkdown>{report}</ReactMarkdown>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <span className="text-xl mr-2">📄</span>
+                  <h3 className="text-xl font-semibold text-blue-800">
+                    Rapport LLM - Cluster {selectedCluster}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => downloadPDF(clusterReportRef, `rapport-cluster-${selectedCluster}-${selectedMethod}-${jobId?.substring(0, 8)}.pdf`)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  Télécharger PDF
+                </button>
+              </div>
+              <div ref={clusterReportRef} className="prose prose-sm md:prose-base lg:prose-lg max-w-none overflow-hidden break-words">
+                <div className="markdown-content">
+                  <ReactMarkdown
+                    components={{
+                      h1: (props) => <h1 className="text-2xl font-bold mt-6 mb-4 text-gray-900" {...props} />,
+                      h2: (props) => <h2 className="text-xl font-semibold mt-5 mb-3 text-gray-800" {...props} />,
+                      h3: (props) => <h3 className="text-lg font-semibold mt-4 mb-2 text-gray-800" {...props} />,
+                      p: (props) => <p className="mb-4 text-gray-700 leading-relaxed break-words" {...props} />,
+                      ul: (props) => <ul className="list-disc list-inside mb-4 space-y-2 text-gray-700" {...props} />,
+                      ol: (props) => <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700" {...props} />,
+                      li: (props) => <li className="ml-4 break-words" {...props} />,
+                      strong: (props) => <strong className="font-semibold text-gray-900" {...props} />,
+                      code: (props) => <code className="bg-gray-100 px-1.5 py-0.5 rounded text-sm font-mono text-gray-800 break-words" {...props} />,
+                      pre: (props) => <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto mb-4" {...props} />,
+                      blockquote: (props) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-700 my-4" {...props} />,
+                    }}
+                  >
+                    {report}
+                  </ReactMarkdown>
+                </div>
               </div>
             </div>
           )}

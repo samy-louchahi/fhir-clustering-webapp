@@ -65,11 +65,11 @@ echo ""
 echo "4️⃣  Vérification du modèle LLM..."
 
 if command -v ollama &> /dev/null; then
-    ollama list | grep -q "llama3.1:8b"
-    check $? "Modèle llama3.1:8b téléchargé (natif)"
+    ollama list | grep -q "qwen2.5:3b-instruct"
+    check $? "Modèle qwen2.5:3b-instruct téléchargé (natif)"
 else
-    docker exec fhir-ollama ollama list 2>/dev/null | grep -q "llama3.1:8b"
-    check $? "Modèle llama3.1:8b téléchargé (Docker)"
+    docker exec fhir-ollama ollama list 2>/dev/null | grep -q "qwen2.5:3b-instruct"
+    check $? "Modèle qwen2.5:3b-instruct téléchargé (Docker)"
 fi
 
 # 5. Vérifier les dossiers requis

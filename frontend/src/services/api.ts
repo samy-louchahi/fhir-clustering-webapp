@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ClusteringRequest, JobStatus, ClusterResults, Job } from '../types';
+import type { ClusteringRequest, JobStatus, ClusterResults, Job, PlotsResponse } from '../types';
 
 const api = axios.create({
   baseURL: 'http://localhost:8000/api',
@@ -24,6 +24,11 @@ export const clusteringAPI = {
   
   listJobs: async (): Promise<{ jobs: Job[] }> => {
     const response = await api.get('/clustering/jobs');
+    return response.data;
+  },
+
+  getPlots: async (jobId: string, method: string = 'kmeans'): Promise<PlotsResponse> => {
+    const response = await api.get(`/clustering/plots/${jobId}/${method}`);
     return response.data;
   }
 };
