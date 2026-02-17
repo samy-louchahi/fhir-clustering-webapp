@@ -59,7 +59,7 @@ services:
       - ./fhir_clustering:/app/fhir_clustering
       - ./workflows:/app/workflows
       # Monte les données en lecture seule
-      - ./data:/app/data:ro
+      - ./data:/app/data
       - ./terminology_omop:/app/terminology_omop:ro
       # Results en lecture-écriture
       - ./results:/app/results

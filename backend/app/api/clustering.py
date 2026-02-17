@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from workflows .dcat_export import DCATGenerator
 from pydantic import BaseModel
 from uuid import uuid4
 import json
@@ -7,9 +8,10 @@ import redis
 import os
 import glob
 from typing import List, Dict, Optional
-
+import pandas as pd
+from app.config import get_settings
 router = APIRouter()
-
+settings = get_settings()
 # Redis client
 redis_client = redis.Redis(host='redis', port=6379, decode_responses=True)
 
@@ -84,6 +86,77 @@ async def get_plot_image(job_id: str, plot_path: str):
     
     return FileResponse(full_path, media_type="image/png")
 
+@router.get("/jobs/{job_id}/clusters/{cluster_id}/dcat")
+async def export_dcat(job_id: str, cluster_id: int):
+    """
+    Exporte les métadonnées d'un cluster au standard européen Health DCAT-AP.
+    Génère le fichier à la volée s'il n'existe pas encore.
+    """
+    # 1. Utilisation du dossier défini dans la config (.env)
+    job_dir = os.path.join(settings.results_dir, "jobs", job_id)
+        
+    if not os.path.exists(job_dir):
+        raise HTTPException(status_code=404, detail="Job non trouvé")
+
+    # On utilise les résultats de HDBSCAN par défaut, sinon K-Means
+    algo_dir = os.path.join(job_dir, "hdbscan", "final")
+    if not os.path.exists(algo_dir):
+        algo_dir = os.path.join(job_dir, "k_mean", "final")
+        
+    # Fichiers sources et fichier de destination
+    summary_path = os.path.join(algo_dir, "cluster_summary.csv")
+    top_codes_path = os.path.join(algo_dir, "top_codes.csv")
+    ttl_filename = f"cohort_{cluster_id}_metadata.ttl"
+    ttl_path = os.path.join(job_dir, ttl_filename)
+
+    # 2. Si le fichier RDF n'existe pas, on le crée
+    if not os.path.exists(ttl_path):
+        if not os.path.exists(summary_path) or not os.path.exists(top_codes_path):
+            raise HTTPException(status_code=404, detail="Les données CSV du cluster sont introuvables. Le job est-il terminé ?")
+        
+        try:
+            # Chargement des données CSV
+            df_summary = pd.read_csv(summary_path)
+            df_top_codes = pd.read_csv(top_codes_path)
+            
+            # Récupérer les infos spécifiques à ce cluster
+            cluster_stats = df_summary[df_summary['cluster_id'] == cluster_id]
+            cluster_codes = df_top_codes[df_top_codes['cluster_id'] == cluster_id]
+            
+            if cluster_stats.empty:
+                raise HTTPException(status_code=404, detail=f"Cluster {cluster_id} introuvable.")
+
+            # Formater les statistiques pour le générateur DCAT
+            stats_dict = cluster_stats.iloc[0].to_dict()
+            
+            top_codes_list = []
+            for _, row in cluster_codes.iterrows():
+                top_codes_list.append({
+                    "system": "SNOMED-CT" if "snomed" in str(row.get('code_name', '')).lower() else "FHIR Code",
+                    "code": str(row.get('code_name', '')),
+                    "display": str(row.get('display', '')),
+                    "frequency": float(row.get('frequency', 0.0))
+                })
+
+            # Génération du DCAT
+            generator = DCATGenerator(output_dir=job_dir)
+            generator.create_cohort_dataset(
+                cluster_id=cluster_id,
+                summary_stats=stats_dict,
+                top_codes=top_codes_list
+            )
+            # On sauvegarde le fichier
+            generator.serialize(filename=ttl_filename)
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erreur lors de la génération DCAT : {str(e)}")
+
+    # 3. Retourner le fichier au format Turtle (.ttl) pour le téléchargement
+    return FileResponse(
+        path=ttl_path, 
+        media_type="text/turtle", 
+        filename=ttl_filename
+    )
 
 def _get_plot_metadata() -> Dict[str, Dict]:
     """Retourne les métadonnées et légendes pour chaque type de plot"""

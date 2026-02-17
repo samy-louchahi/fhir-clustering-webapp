@@ -28,7 +28,11 @@ class FHIRClusteringPipeline:
                  clustering_method: str = 'kmeans',
                  n_clusters: Optional[int] = None,
                  min_df: float = 0.0,
-                 max_df: float = 1.0):
+                 max_df: float = 1.0,
+                 # --- NOUVEAUX PARAMÈTRES DÉMOGRAPHIQUES ---
+                 include_demographics: bool = True,
+                 age_weight: float = 2.0,
+                 gender_weight: float = 1.0):
         """
         Initialize clustering pipeline.
         
@@ -41,6 +45,9 @@ class FHIRClusteringPipeline:
             n_clusters: Number of clusters (for KMeans)
             min_df: Minimum document frequency (e.g. 0.01 for 1%)
             max_df: Maximum document frequency (e.g. 0.90 to remove generic parents)
+            include_demographics: Whether to add age and gender features
+            age_weight: Weight multiplier for the age feature
+            gender_weight: Weight multiplier for the gender feature
         """
         self.include_systems = include_systems
         self.apply_tfidf = apply_tfidf
@@ -50,6 +57,10 @@ class FHIRClusteringPipeline:
         self.n_clusters = n_clusters
         self.min_df = min_df
         self.max_df = max_df
+        
+        self.include_demographics = include_demographics
+        self.age_weight = age_weight
+        self.gender_weight = gender_weight
         
         # Components
         self.matrix_builder: Optional[PatientCodeMatrix] = None
@@ -76,35 +87,33 @@ class FHIRClusteringPipeline:
             self
         """
         print(f"Building patient-code matrix...")
-        # Step 1: Build matrix
+        # Step 1: Build matrix with demographic support
         self.matrix_builder = PatientCodeMatrix(
             patients=patients,
-            include_systems=self.include_systems
+            include_systems=self.include_systems,
+            include_demographics=self.include_demographics,
+            age_weight=self.age_weight,
+            gender_weight=self.gender_weight
         )
         self.original_matrix = self.matrix_builder.build_matrix()
         stats = self.matrix_builder.get_matrix_stats()
-        print(f"Matrix shape (raw): {stats['n_patients']} patients × {stats['n_codes']} codes")
+        print(f"Matrix shape (raw): {stats['n_patients']} patients × {stats['n_features']} features")
         print(f"Sparsity: {stats['sparsity']:.2%}")
         
         # Step 1.5: Feature Selection (Filtering)
-        # We instantiate the transformer early to use its filtering capabilities
         self.feature_transformer = FeatureTransformer()
         
         if self.min_df > 0.0 or self.max_df < 1.0:
             print(f"Applying feature selection (min_df={self.min_df}, max_df={self.max_df})...")
             
-            # 1. Calculate mask based on frequency
             mask = self.feature_transformer.calculate_frequency_mask(
                 self.original_matrix,
                 min_df=self.min_df,
                 max_df=self.max_df
             )
             
-            # 2. Filter the matrix columns
             self.original_matrix = self.feature_transformer.apply_feature_selection(self.original_matrix)
             
-            # 3. CRITICAL: Update MatrixBuilder mappings to match new matrix columns
-            # We must map the old column indices to the new shifted indices
             kept_indices = np.where(mask)[0]
             new_idx_to_code = {}
             new_code_to_idx = {}
@@ -114,17 +123,15 @@ class FHIRClusteringPipeline:
                 new_idx_to_code[new_idx] = code_obj
                 new_code_to_idx[str(code_obj)] = new_idx
             
-            # Overwrite internal state of matrix_builder so interpretation works
             self.matrix_builder.idx_to_code = new_idx_to_code
             self.matrix_builder.code_to_idx = new_code_to_idx
             
-            print(f"Matrix shape (filtered): {self.original_matrix.shape[0]} patients × {self.original_matrix.shape[1]} codes")
+            print(f"Matrix shape (filtered): {self.original_matrix.shape[0]} patients × {self.original_matrix.shape[1]} features")
 
         # Step 2: Feature transformation (TF-IDF)
         self.transformed_matrix = self.original_matrix
         if self.apply_tfidf:
             print(f"Applying TF-IDF transformation...")
-            # Use the already instantiated transformer
             self.transformed_matrix = self.feature_transformer.apply_tfidf(
                 self.original_matrix
             )
@@ -153,8 +160,6 @@ class FHIRClusteringPipeline:
         self.cluster_labels = self.clusterer.fit_predict(clustering_input)
         n_clusters = self.clusterer.get_n_clusters()
         print(f"Found {n_clusters} clusters")
-        cluster_sizes = self.clusterer.get_cluster_sizes()
-        print(f"Cluster sizes: {cluster_sizes}")
         
         # Step 5: Set up interpretation
         self.interpreter = ClusterInterpreter(
@@ -164,41 +169,24 @@ class FHIRClusteringPipeline:
         
         return self
     
-    def get_top_codes_per_cluster(self, top_n: int = 10, 
-                                  method: str = 'frequency') -> Dict:
-        """
-        Get top medical codes characterizing each cluster.
-        
-        Args:
-            top_n: Number of top codes per cluster
-            method: Ranking method ('frequency', 'tfidf', 'distinctiveness')
-            
-        Returns:
-            Dictionary mapping cluster_id to top codes
-        """
+    def get_top_codes_per_cluster(self, top_n: int = 10, method: str = 'frequency') -> Dict:
         if self.interpreter is None:
             raise ValueError("Pipeline not fitted yet. Call fit() first.")
-        
         return self.interpreter.get_top_codes_per_cluster(
             self.cluster_labels, top_n=top_n, method=method
         )
     
     def get_cluster_summary(self) -> pd.DataFrame:
-        """Get summary statistics for each cluster."""
         if self.interpreter is None:
             raise ValueError("Pipeline not fitted yet. Call fit() first.")
-        
         return self.interpreter.get_cluster_summary(self.cluster_labels)
     
     def get_patient_assignments(self) -> pd.DataFrame:
-        """Get patient-to-cluster assignments."""
         if self.interpreter is None:
             raise ValueError("Pipeline not fitted yet. Call fit() first.")
-        
         return self.interpreter.get_patient_cluster_membership(self.cluster_labels)
     
     def get_cluster_labels(self) -> np.ndarray:
-        """Get cluster labels for all patients."""
         if self.cluster_labels is None:
             raise ValueError("Pipeline not fitted yet. Call fit() first.")
         return self.cluster_labels

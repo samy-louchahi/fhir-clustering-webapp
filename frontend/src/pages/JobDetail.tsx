@@ -6,6 +6,9 @@ import ReactMarkdown from 'react-markdown';
 import html2pdf from 'html2pdf.js';
 import ClusteringVisualizations from '../components/ClusteringVisualizations';
 
+// Utilisation de la variable d'environnement Vite avec un fallback local
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
 const JobDetail: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const [status, setStatus] = useState<JobStatus | null>(null);
@@ -17,13 +20,12 @@ const JobDetail: React.FC = () => {
   const [globalReport, setGlobalReport] = useState<string>('');
   const [loadingGlobalReport, setLoadingGlobalReport] = useState(false);
   
-  // Refs for PDF export
+  // Refs pour l'export PDF
   const globalReportRef = useRef<HTMLDivElement>(null);
   const clusterReportRef = useRef<HTMLDivElement>(null);
 
-  // Helper function to clean markdown from code block wrapping
+  // Fonction pour nettoyer le markdown (enlève les balises de code markdown)
   const cleanMarkdown = (text: string): string => {
-    // Remove ```markdown at the beginning and ``` at the end
     let cleaned = text.trim();
     if (cleaned.startsWith('```markdown')) {
       cleaned = cleaned.replace(/^```markdown\n?/, '');
@@ -36,7 +38,7 @@ const JobDetail: React.FC = () => {
     return cleaned.trim();
   };
 
-  // Function to download report as PDF
+  // Fonction pour télécharger le rapport en PDF
   const downloadPDF = (elementRef: React.RefObject<HTMLDivElement>, filename: string) => {
     if (!elementRef.current) return;
     
@@ -51,6 +53,7 @@ const JobDetail: React.FC = () => {
     html2pdf().set(opt).from(elementRef.current).save();
   };
 
+  // Polling du statut du Job
   useEffect(() => {
     if (!jobId) return;
 
@@ -76,30 +79,31 @@ const JobDetail: React.FC = () => {
     return () => clearInterval(interval);
   }, [jobId]);
 
+  // Générer rapport LLM pour un seul cluster
   const generateReport = async (clusterId: number) => {
     if (!jobId) return;
     setLoadingReport(true);
-    setSelectedCluster(clusterId); // Set immediately for loading indicator
+    setSelectedCluster(clusterId); 
     try {
       const data = await llmAPI.generateReport(jobId, clusterId, selectedMethod);
       setReport(cleanMarkdown(data.report));
     } catch (error) {
       console.error('Error generating report:', error);
       alert('Erreur lors de la génération du rapport');
-      setSelectedCluster(null); // Reset on error
+      setSelectedCluster(null);
     } finally {
       setLoadingReport(false);
     }
   };
 
+  // Générer rapport LLM global
   const generateGlobalReport = async () => {
     if (!jobId) return;
     setLoadingGlobalReport(true);
-    setGlobalReport(''); // Clear previous report
+    setGlobalReport('');
     try {
       const data = await llmAPI.generateGlobalReport(jobId, selectedMethod);
       setGlobalReport(cleanMarkdown(data.report));
-      // Clear individual cluster report when showing global
       setSelectedCluster(null);
       setReport('');
     } catch (error) {
@@ -121,7 +125,7 @@ const JobDetail: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Status Card */}
+      {/* Carte de Statut */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-2xl font-bold mb-4">Job: {jobId}</h2>
         <div className="grid grid-cols-2 gap-4">
@@ -147,10 +151,10 @@ const JobDetail: React.FC = () => {
         )}
       </div>
 
-      {/* Results */}
+      {/* Résultats (Une fois complété) */}
       {results && (
         <>
-          {/* Method Selector */}
+          {/* Sélecteur de méthode (K-Means vs HDBSCAN) */}
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex space-x-4">
               <button
@@ -176,7 +180,7 @@ const JobDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Clusters Table */}
+          {/* Table des Clusters */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold">
@@ -200,6 +204,7 @@ const JobDetail: React.FC = () => {
                 )}
               </button>
             </div>
+            
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -225,23 +230,37 @@ const JobDetail: React.FC = () => {
                         {cluster.n_patients}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => generateReport(cluster.cluster_id)}
-                          disabled={loadingReport}
-                          className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {loadingReport && selectedCluster === cluster.cluster_id ? (
-                            <>
-                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Génération...
-                            </>
-                          ) : (
-                            '📄 Générer Rapport'
-                          )}
-                        </button>
+                        <div className="flex space-x-4">
+                          <button
+                            onClick={() => generateReport(cluster.cluster_id)}
+                            disabled={loadingReport}
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+                          >
+                            {loadingReport && selectedCluster === cluster.cluster_id ? (
+                              <>
+                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Génération...
+                              </>
+                            ) : (
+                              '📄 Générer Rapport'
+                            )}
+                          </button>
+
+                          {/* Bouton Export DCAT-AP */}
+                          <a
+                            href={`${API_BASE_URL}/jobs/${jobId}/clusters/${cluster.cluster_id}/dcat`}
+                            download
+                            className="inline-flex items-center text-green-600 hover:text-green-800 font-medium transition"
+                          >
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                            Exporter DCAT-AP (FAIR)
+                          </a>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -250,16 +269,39 @@ const JobDetail: React.FC = () => {
             </div>
           </div>
 
-          {/* Visualizations Section */}
-          {results.plots && results.plots.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
+          {/* Section Visualisations (Plotly + UMAP) */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-xl font-semibold mb-4">Visualisations</h3>
+            
+            {/* Graphiques Interactifs React-Plotly (si disponibles) */}
+            {results.plots && results.plots.length > 0 && (
               <ClusteringVisualizations plots={results.plots} selectedMethod={selectedMethod} />
-            </div>
-          )}
+            )}
 
-          {/* Global Report Display */}
+            {/* Graphique Statique UMAP */}
+            <div className="mt-8 border-t pt-6">
+              <h4 className="text-lg font-medium mb-3 text-gray-800">Projection Topologique Locale (UMAP)</h4>
+              <div className="flex justify-center border border-gray-200 rounded p-4 bg-gray-50">
+                <img 
+                  src={`${API_BASE_URL}/jobs/${jobId}/files/plots/umap_projection.png`} 
+                  alt="Projection UMAP indisponible ou en cours de génération..." 
+                  className="max-w-full h-auto rounded shadow-sm"
+                  onError={(e) => {
+                    // Masque l'image si elle n'existe pas encore (fallback propre)
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    (e.target as HTMLImageElement).parentElement!.innerHTML = '<p class="text-gray-500 italic text-sm">Image UMAP non générée pour ce job ou introuvable.</p>';
+                  }}
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-2 text-center">
+                Cette carte non-linéaire (UMAP) permet de visualiser les cohortes de patients et leurs interconnexions (comorbidités).
+              </p>
+            </div>
+          </div>
+
+          {/* Affichage du Rapport Global */}
           {globalReport && (
-            <div className="bg-white rounded-lg shadow p-6 border-2 border-green-200">
+            <div className="bg-white rounded-lg shadow p-6 border-2 border-green-200 mt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <span className="text-2xl mr-3">📊</span>
@@ -277,7 +319,19 @@ const JobDetail: React.FC = () => {
                   Télécharger PDF
                 </button>
               </div>
+              
               <div ref={globalReportRef} className="prose prose-sm md:prose-base lg:prose-lg max-w-none overflow-hidden break-words">
+                {/* Image UMAP intégrée dans le rapport pour l'export PDF */}
+                <div className="my-6">
+                   <img 
+                      src={`${API_BASE_URL}/jobs/${jobId}/files/plots/umap_projection.png`} 
+                      alt="UMAP" 
+                      style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto' }}
+                      crossOrigin="anonymous" // Nécessaire pour que html2pdf puisse capturer l'image
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                </div>
+                
                 <div className="markdown-content">
                   <ReactMarkdown
                     components={{
@@ -301,9 +355,9 @@ const JobDetail: React.FC = () => {
             </div>
           )}
 
-          {/* Report Display */}
+          {/* Affichage du Rapport par Cluster (LLM) */}
           {report && selectedCluster !== null && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-6 mt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <span className="text-xl mr-2">📄</span>

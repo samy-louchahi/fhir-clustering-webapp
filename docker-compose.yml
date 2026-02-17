@@ -62,7 +62,7 @@ services:
     volumes:
       - backend_results:/app/results
       # Volumes pour les données (au lieu de les copier dans l'image)
-      - ./data:/app/data:ro
+      - ./data:/app/data
       - ./terminology_omop:/app/terminology_omop:ro
     environment:
       - REDIS_URL=redis://redis:6379/0

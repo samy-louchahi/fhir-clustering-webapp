@@ -2,6 +2,11 @@ export interface ClusteringRequest {
   feature_mode: 'raw_codes' | 'domain_rollup';
   n_components: number;
   force?: boolean;
+
+  include_demographics?: boolean;
+  age_weight?: number;
+  gender_weight?: number;
+  
 }
 
 export interface JobStatus {

@@ -6,6 +6,10 @@ class ClusteringRequest(BaseModel):
     n_components: int = 30
     force: bool = False
 
+    include_demographics: bool = True
+    age_weight : float = 2.0
+    gender_weight : float = 1.0
+
 class JobStatusResponse(BaseModel):
     job_id: str
     status: str
