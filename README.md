@@ -343,8 +343,8 @@ MIT License - voir le fichier LICENSE
 
 ## 👥 Auteurs
 
-- Votre Nom - [GitHub](https://github.com/votre-username)
-
+- Chartier Alexis - [GitHub](https://github.com/AlexisChartier)
+- Louchahi Samy - [GitHub](https://github.com/samy-louchahi)
 ## 🙏 Remerciements
 
 - FastAPI pour le framework backend
